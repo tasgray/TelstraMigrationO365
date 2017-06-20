@@ -12,6 +12,7 @@ $csv_file = "User Licenses - $($domain.Name).csv"
 $confirm = ""
 $insufficientlicense = $false
 $existing_user_licenses = @{}
+$assigned_user_licenses = @{}
 
 $underprovisionedlicenses = New-Object System.Collections.ArrayList
 
@@ -42,8 +43,6 @@ Get-MsolAccountSku | ForEach-Object {
 
 }
 
-
-
 Write-Host "Insufficient Licenses? $(YesNo($insufficientlicense))"
 
 if($insufficientlicense) {
@@ -53,7 +52,7 @@ if($insufficientlicense) {
     {}
 }
 
-Write-Host "Licensed user information has been stored. I'll keep an eye on subscriptions while you begin cancelling and replace them for you..."
+Write-Host "Licensed user information has been stored. You can start cancelling subscriptions in the Telstra Apps Marketplace and I'll automagically reassign them."
 Write-Host "Re-assigning licenses to users..."
 
 # Get users and loop 
@@ -70,18 +69,23 @@ While($true) {
             $existing_user_licenses.Get_Item($current_user.UserPrincipalName) | ForEach-Object {
                 
                 $sku = $_.AccountSkuId
-                
+                #Write-Host "$($sku)"
+
                 #see if it exists in the current users licenses
                 if( @($current_user.Licenses.Where({ $_.AccountSkuId -eq $sku })).Count -ne 1) {
                     Write-Host "$($current_user.UserPrincipalName) license has been removed. Please wait while I add it back.."
                     Write-Host "Assigning $($sku) to $($current_user.UserPrincipalName)"
                     Set-MsolUserLicense -UserPrincipalName $current_user.UserPrincipalName -AddLicenses $sku
+
+                    $assigned_user_licenses[$sku] += 1
+
+                    Write-Host "$($sku) reassigned $($assigned_user_licenses.Get_Item($sku)) times."
                 }
             }
         }
     }
 
     #write-host "sleep start"
-    start-sleep 3
+    start-sleep 2
     #write-host "sleep finish"
 }    
